@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mini SOC Command Center</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <header class="hero">
+            <div class="hero-copy">
+                <div class="brand">
+                    <div class="brand-mark">SOC</div>
+                    <div>
+                        <p class="eyebrow">Security Operations</p>
+                        <h1>Mini SOC Command Center</h1>
+                    </div>
+                </div>
+                <p class="hero-text">
+                    Start monitoring, review alerts, scan a web target, and encrypt evidence from one simple dashboard.
+                </p>
+            </div>
+
+            <div class="hero-status">
+                <div class="status-card">
+                    <span>Collection Mode</span>
+                    <strong id="collection-mode">Awaiting run</strong>
+                </div>
+                <div class="status-card">
+                    <span>Last Activity</span>
+                    <strong id="last-activity">Not yet recorded</strong>
+                </div>
+            </div>
+        </header>
+
+        <section class="action-strip">
+            <article class="action-card action-card-primary">
+                <div>
+                    <p class="section-label">Step 1</p>
+                    <h2>Run monitoring</h2>
+                    <p class="muted">Use smart mode first. It will try live capture and fall back safely when needed.</p>
+                </div>
+                <div class="action-buttons">
+                    <button id="run-auto" class="primary-button">Start Smart Monitoring</button>
+                    <button id="run-simulated" class="secondary-button">Use Demo Traffic</button>
+                </div>
+            </article>
+
+            <article class="action-card action-card-secondary">
+                <p class="section-label">Quick refresh</p>
+                <h2>Update dashboard data</h2>
+                <p class="muted">Refresh alerts, metrics, and event history without rerunning monitoring.</p>
+                <button id="refresh-data" class="ghost-button">Refresh Dashboard</button>
+            </article>
+        </section>
+
+        <section class="metrics-grid">
+            <article class="metric-card">
+                <span>Total Alerts</span>
+                <strong id="metric-total-alerts">0</strong>
+            </article>
+            <article class="metric-card">
+                <span>High Severity</span>
+                <strong id="metric-high-alerts">0</strong>
+            </article>
+            <article class="metric-card">
+                <span>Packets Reviewed</span>
+                <strong id="metric-packets">0</strong>
+            </article>
+            <article class="metric-card">
+                <span>Scan Runs</span>
+                <strong id="metric-scans">0</strong>
+            </article>
+        </section>
+
+        <section class="content-grid">
+            <div class="main-column">
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="section-label">Monitoring</p>
+                            <h3>Recent traffic activity</h3>
+                        </div>
+                    </div>
+                    <div id="traffic-chart" class="traffic-chart"></div>
+                    <div id="traffic-empty" class="empty-state">Run monitoring to populate traffic activity.</div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="section-label">Alerts</p>
+                            <h3>Recent detections</h3>
+                        </div>
+                    </div>
+                    <div class="table-shell">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Severity</th>
+                                    <th>Type</th>
+                                    <th>Source</th>
+                                    <th>Message</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alerts-table"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </div>
+
+            <div class="side-column">
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="section-label">Summary</p>
+                            <h3>Alert distribution</h3>
+                        </div>
+                    </div>
+                    <div id="severity-breakdown" class="severity-list"></div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="section-label">Scanner</p>
+                            <h3>Check a web target</h3>
+                        </div>
+                    </div>
+                    <form id="scan-form" class="tool-form">
+                        <label for="scan-url">Target URL</label>
+                        <input id="scan-url" name="url" type="text" placeholder="https://example.com">
+                        <button type="submit" class="primary-button">Run Scan</button>
+                    </form>
+                    <div id="scan-result" class="result-card empty-state">No scan results yet.</div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="section-label">Encryption</p>
+                            <h3>Protect an artifact</h3>
+                        </div>
+                    </div>
+                    <form id="encrypt-form" class="tool-form">
+                        <label for="encrypt-file">Select file</label>
+                        <input id="encrypt-file" name="file" type="file">
+                        <button type="submit" class="primary-button">Encrypt File</button>
+                    </form>
+                    <div id="encrypt-result" class="result-card empty-state">No encrypted artifact generated yet.</div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <div>
+                            <p class="section-label">History</p>
+                            <h3>Recent system events</h3>
+                        </div>
+                    </div>
+                    <div id="events-feed" class="event-feed"></div>
+                </article>
+            </div>
+        </section>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
