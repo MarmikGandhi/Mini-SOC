@@ -20,7 +20,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 @app.route("/")
 def dashboard():
-    return render_template("dashboard.html")
+    return render_template("index.html")
 
 
 @app.get("/api/overview")
