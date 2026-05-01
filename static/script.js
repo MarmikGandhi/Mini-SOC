@@ -18,6 +18,35 @@ const trafficChart = document.getElementById("traffic-chart");
 const trafficEmpty = document.getElementById("traffic-empty");
 const scanResult = document.getElementById("scan-result");
 const encryptResult = document.getElementById("encrypt-result");
+const themeToggle = document.getElementById("theme-toggle");
+
+function applyTheme(theme) {
+    document.body.dataset.theme = theme;
+    themeToggle?.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+}
+
+function initializeTheme() {
+    const storedTheme = localStorage.getItem("mini-soc-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const theme = storedTheme || (prefersDark ? "dark" : "light");
+    applyTheme(theme);
+}
+
+function toggleTheme() {
+    const nextTheme = document.body.dataset.theme === "dark" ? "light" : "dark";
+    localStorage.setItem("mini-soc-theme", nextTheme);
+    applyTheme(nextTheme);
+}
+
+function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+    }[char]));
+}
 
 function severityClass(severity) {
     return `severity-${(severity || "low").toLowerCase()}`;
@@ -116,9 +145,11 @@ function renderEvents(events) {
         .slice(0, 8)
         .map((event) => `
             <div class="event-item">
-                <strong>${event.event_type.replace(/_/g, " ")}</strong>
+                <div class="event-item-top">
+                    <strong>${event.event_type.replace(/_/g, " ")}</strong>
+                    <span class="event-time">${formatTime(event.timestamp)}</span>
+                </div>
                 <p>${describeEvent(event)}</p>
-                <p>${formatTime(event.timestamp)}</p>
             </div>
         `)
         .join("");
@@ -270,9 +301,14 @@ async function handleEncrypt(event) {
 
     encryptResult.innerHTML = `
         <strong>${data.message}</strong>
-        <p>Original file: ${data.original_name}</p>
-        <p>Encrypted artifact: ${data.encrypted_name}</p>
+        <p>Original file: ${escapeHtml(data.original_name)}</p>
+        <p>Encrypted artifact: ${escapeHtml(data.encrypted_name)}</p>
         <p>Size: ${data.original_size} bytes -> ${data.encrypted_size} bytes</p>
+        <div class="result-actions">
+            <a class="ghost-button result-link" href="${escapeHtml(data.download_url || `/api/encrypt/download/${encodeURIComponent(data.encrypted_name)}`)}" download>
+                Download Encrypted File
+            </a>
+        </div>
     `;
 
     await loadDashboard();
@@ -283,7 +319,9 @@ document.getElementById("run-simulated").addEventListener("click", () => runMoni
 document.getElementById("refresh-data").addEventListener("click", loadDashboard);
 document.getElementById("scan-form").addEventListener("submit", handleScan);
 document.getElementById("encrypt-form").addEventListener("submit", handleEncrypt);
+themeToggle?.addEventListener("click", toggleTheme);
 
+initializeTheme();
 loadDashboard().catch(() => {
     eventsFeed.innerHTML = `<div class="empty-state">Dashboard data could not be loaded.</div>`;
 });

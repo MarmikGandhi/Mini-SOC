@@ -1,8 +1,9 @@
 from pathlib import Path
+import os
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, abort, jsonify, render_template, request, send_file
 
-from modules.crypto import encrypt_file
+from modules.crypto import SECURE_DIR, encrypt_file
 from modules.ids import build_overview, detect_threats
 from modules.logger import (
     get_recent_events,
@@ -35,7 +36,11 @@ def run_monitor():
     payload = request.get_json(silent=True) or {}
     mode = payload.get("mode", "auto")
 
-    packets = start_sniffing(mode=mode, packet_count=12)
+    try:
+        packets = start_sniffing(mode=mode, packet_count=12)
+    except Exception:
+        packets = [{"error": "Packet sniffing not supported on cloud"}]
+
     alerts = detect_threats(packets)
 
     for alert in alerts:
@@ -43,7 +48,7 @@ def run_monitor():
         log_event("alert", alert)
 
     monitor_event = {
-        "message": f"Monitoring run completed in {packets[0]['collection_mode'] if packets else mode} mode.",
+        "message": f"Monitoring run completed in {mode} mode.",
         "mode": mode,
         "packet_count": len(packets),
         "generated_alerts": len(alerts),
@@ -54,7 +59,10 @@ def run_monitor():
         {
             "packets": packets,
             "alerts": alerts,
-            "overview": build_overview(get_recent_events(limit=100), get_stored_alerts(limit=25)),
+            "overview": build_overview(
+                get_recent_events(limit=100),
+                get_stored_alerts(limit=25),
+            ),
         }
     )
 
@@ -78,7 +86,14 @@ def scan():
         return jsonify({"ok": False, "error": "A target URL is required."}), 400
 
     result = scan_url(url)
-    log_event("scan", {"target": url, "summary": result.get("summary"), "risk_score": result.get("risk_score")})
+    log_event(
+        "scan",
+        {
+            "target": url,
+            "summary": result.get("summary"),
+            "risk_score": result.get("risk_score"),
+        },
+    )
     return jsonify(result)
 
 
@@ -89,6 +104,7 @@ def encrypt():
         return jsonify({"ok": False, "error": "Select a file to encrypt."}), 400
 
     result = encrypt_file(uploaded_file)
+    result["download_url"] = f"/api/encrypt/download/{result['encrypted_name']}"
     log_event(
         "file_encryption",
         {
@@ -100,5 +116,17 @@ def encrypt():
     return jsonify(result)
 
 
+@app.get("/api/encrypt/download/<path:filename>")
+def download_encrypted_file(filename):
+    safe_name = Path(filename).name
+    target = (SECURE_DIR / safe_name).resolve()
+
+    if SECURE_DIR.resolve() not in target.parents or not target.is_file():
+        abort(404)
+
+    return send_file(target, as_attachment=True, download_name=safe_name)
+
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

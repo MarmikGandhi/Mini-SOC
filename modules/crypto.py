@@ -5,7 +5,8 @@ from werkzeug.utils import secure_filename
 from cryptography.fernet import Fernet
 
 
-SECURE_DIR = Path("logs")
+BASE_DIR = Path(__file__).resolve().parent.parent
+SECURE_DIR = BASE_DIR / "logs"
 KEY_PATH = SECURE_DIR / "fernet.key"
 SECURE_DIR.mkdir(exist_ok=True)
 
