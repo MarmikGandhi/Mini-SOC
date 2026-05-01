@@ -19,6 +19,7 @@ const trafficEmpty = document.getElementById("traffic-empty");
 const scanResult = document.getElementById("scan-result");
 const encryptResult = document.getElementById("encrypt-result");
 const themeToggle = document.getElementById("theme-toggle");
+const refreshButton = document.getElementById("refresh-data");
 
 function applyTheme(theme) {
     document.body.dataset.theme = theme;
@@ -185,16 +186,26 @@ function setHeroStatus(mode, timestamp) {
     lastActivity.textContent = timestamp ? formatTime(timestamp) : "Not yet recorded";
 }
 
+async function fetchJson(url) {
+    const response = await fetch(url, { cache: "no-store" });
+
+    if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+    }
+
+    return response.json();
+}
+
 async function loadDashboard() {
     const [overviewResponse, alertsResponse, eventsResponse] = await Promise.all([
-        fetch("/api/overview"),
-        fetch("/api/alerts"),
-        fetch("/api/events"),
+        fetchJson("/api/overview"),
+        fetchJson("/api/alerts"),
+        fetchJson("/api/events"),
     ]);
 
-    state.overview = await overviewResponse.json();
-    state.alerts = await alertsResponse.json();
-    state.events = await eventsResponse.json();
+    state.overview = overviewResponse;
+    state.alerts = alertsResponse;
+    state.events = eventsResponse;
 
     renderMetrics(state.overview);
     renderSeverityBreakdown(state.overview);
@@ -202,10 +213,33 @@ async function loadDashboard() {
     renderEvents(state.events);
 
     const latestEvent = state.events[0];
+    const latestMonitorRun = state.events.find((event) => event.event_type === "monitor_run");
     setHeroStatus(
-        latestEvent?.details?.mode || state.latestPackets[0]?.collection_mode,
+        latestMonitorRun?.details?.mode || state.latestPackets[0]?.collection_mode,
         latestEvent?.timestamp,
     );
+}
+
+async function refreshDashboard() {
+    const originalLabel = refreshButton.textContent;
+    refreshButton.textContent = "Refreshing...";
+    refreshButton.disabled = true;
+
+    try {
+        await loadDashboard();
+        refreshButton.textContent = "Dashboard Updated";
+        setTimeout(() => {
+            refreshButton.textContent = originalLabel;
+        }, 1200);
+    } catch (error) {
+        refreshButton.textContent = "Refresh Failed";
+        eventsFeed.innerHTML = `<div class="empty-state">Dashboard data could not be loaded.</div>`;
+        setTimeout(() => {
+            refreshButton.textContent = originalLabel;
+        }, 1800);
+    } finally {
+        refreshButton.disabled = false;
+    }
 }
 
 async function runMonitoring(mode) {
@@ -305,20 +339,68 @@ async function handleEncrypt(event) {
         <p>Encrypted artifact: ${escapeHtml(data.encrypted_name)}</p>
         <p>Size: ${data.original_size} bytes -> ${data.encrypted_size} bytes</p>
         <div class="result-actions">
-            <a class="ghost-button result-link" href="${escapeHtml(data.download_url || `/api/encrypt/download/${encodeURIComponent(data.encrypted_name)}`)}" download>
+            <button
+                class="ghost-button result-link"
+                type="button"
+                data-download-url="${escapeHtml(data.download_url || `/api/encrypt/download/${encodeURIComponent(data.encrypted_name)}`)}"
+                data-filename="${escapeHtml(data.encrypted_name)}"
+            >
                 Download Encrypted File
-            </a>
+            </button>
         </div>
     `;
 
     await loadDashboard();
 }
 
+async function downloadEncryptedArtifact(button) {
+    const downloadUrl = button.dataset.downloadUrl;
+    const filename = button.dataset.filename || "encrypted-artifact.bin";
+    const originalLabel = button.textContent;
+
+    button.textContent = "Downloading...";
+    button.disabled = true;
+
+    try {
+        const response = await fetch(downloadUrl);
+
+        if (!response.ok) {
+            throw new Error("The encrypted file is not available on the server.");
+        }
+
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+        encryptResult.insertAdjacentHTML(
+            "beforeend",
+            `<p class="error-message">${escapeHtml(error.message || "Download failed.")}</p>`,
+        );
+    } finally {
+        button.textContent = originalLabel;
+        button.disabled = false;
+    }
+}
+
 document.getElementById("run-auto").addEventListener("click", () => runMonitoring("auto"));
 document.getElementById("run-simulated").addEventListener("click", () => runMonitoring("simulated"));
-document.getElementById("refresh-data").addEventListener("click", loadDashboard);
+refreshButton.addEventListener("click", refreshDashboard);
 document.getElementById("scan-form").addEventListener("submit", handleScan);
 document.getElementById("encrypt-form").addEventListener("submit", handleEncrypt);
+encryptResult.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-download-url]");
+
+    if (button) {
+        downloadEncryptedArtifact(button);
+    }
+});
 themeToggle?.addEventListener("click", toggleTheme);
 
 initializeTheme();

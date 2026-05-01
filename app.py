@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-from flask import Flask, abort, jsonify, render_template, request, send_file
+from flask import Flask, abort, jsonify, render_template, request, send_from_directory, url_for
 
 from modules.crypto import SECURE_DIR, encrypt_file
 from modules.ids import build_overview, detect_threats
@@ -15,6 +15,7 @@ from modules.packet_sniffer import start_sniffing
 from modules.vuln_scanner import scan_url
 
 app = Flask(__name__)
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 0
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
@@ -104,7 +105,10 @@ def encrypt():
         return jsonify({"ok": False, "error": "Select a file to encrypt."}), 400
 
     result = encrypt_file(uploaded_file)
-    result["download_url"] = f"/api/encrypt/download/{result['encrypted_name']}"
+    result["download_url"] = url_for(
+        "download_encrypted_file",
+        filename=result["encrypted_name"],
+    )
     log_event(
         "file_encryption",
         {
@@ -124,7 +128,12 @@ def download_encrypted_file(filename):
     if SECURE_DIR.resolve() not in target.parents or not target.is_file():
         abort(404)
 
-    return send_file(target, as_attachment=True, download_name=safe_name)
+    return send_from_directory(
+        SECURE_DIR,
+        safe_name,
+        as_attachment=True,
+        download_name=safe_name,
+    )
 
 
 if __name__ == "__main__":
